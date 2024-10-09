@@ -1,126 +1,53 @@
 #include <iostream>
-#include <vector>
+#include <fstream>
 #include <string>
+#include <stack>
 
 using namespace std;
 
-class Participant {
-protected:
-    string name;
-    int runLimit;
-    int jumpLimit;
-public:
-    string Getname() {
-        return name;
-    }
-
-    Participant(string name, int runLimit, int jumpLimit)
-        : name(name), runLimit(runLimit), jumpLimit(jumpLimit) {}
-
-    virtual void run(int distance) {
-        if (distance <= runLimit) {
-            cout << "Участник " << name << " пробежал " << distance << " метров\n";
-        } 
-        else {
-            cout << "Участник " << name << " не смог пробежать " << distance << " метров Пройдено " << runLimit << " метров\n";
-            throw runtime_error("Участник выбыл из участия");
-        }
-    }
-
-    virtual void jump(int height) {
-        if (height <= jumpLimit) {
-            cout << "Участник " << name << " перепрыгнул " << height << " метров\n";
-        } 
-        else {
-            cout << "Участник " << name << " не смог перепрыгнуть " << height << " метров Пройдено " << jumpLimit << " метров\n";
-            throw runtime_error("Участник выбыл из участия");
-        }
-    }
-
-    virtual ~Participant() = default;
-};
-
-class Human : public Participant {
-public:
-    Human(string name) : Participant(name, 5000, 2) {}
-};
-
-class Cat : public Participant {
-public:
-    Cat(string name) : Participant(name, 1000, 3) {}
-};
-
-class Robot : public Participant {
-public:
-    Robot(string name) : Participant(name, 10000, 1) {}
-};
-
-class Obstacle {
-public:
-    virtual void overcome(Participant* participant) = 0;
-    virtual ~Obstacle() = default;
-};
-
-class RunningTrack : public Obstacle {
-    int distance;
-public:
-    RunningTrack(int distance) : distance(distance) {}
-
-    void overcome(Participant* participant) override {
-        try {
-            participant->run(distance);
-        } catch (runtime_error&) {
-            throw;
-        }
-    }
-};
-
-class Wall : public Obstacle {
-    int height;
-public:
-    Wall(int height) : height(height) {}
-
-    void overcome(Participant* participant) override {
-        try {
-            participant->jump(height);
-        } catch (runtime_error&) {
-            throw;
-        }
-    }
-};
-
 int main() {
     setlocale(0, "ru");
+    string filename;
+    cout << "Введите путь к HTML-файлу: ";
+    cin >> filename;
 
-    vector<Participant*> participants = {
-        new Human("Александр"),
-        new Cat("Мурзик"),
-        new Robot("Бот")
-    };
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Ошибка открытия файла: " << filename << endl;
+        return 1;
+    }
 
-    vector<Obstacle*> obstacles = {
-        new RunningTrack(3000),
-        new Wall(2),
-        new RunningTrack(7000),
-        new Wall(1)
-    };
+    stack<string> tags;
+    string line;
 
-    for (Participant* participant : participants) {
-        cout << "=== Участник: " << participant->Getname() << " ===\n";
-        try {
-            for (Obstacle* obstacle : obstacles) {
-                obstacle->overcome(participant);
+    while (getline(file, line)) {
+        
+        line.erase(remove_if(line.begin(), line.end(), isspace), line.end());
+
+        
+        if (line.length() > 1 && line[0] == '<' && line[line.length() - 1] == '>') {
+            bool isClosingTag = line[1] == '/';
+            string tagName = line.substr(isClosingTag + 1, line.length() - 2 - isClosingTag);
+
+            if (isClosingTag) {
+                if (tags.empty() || tags.top() != tagName) {
+                    cout << "Ошибка закрытия тега: " << tagName << endl;
+                    return 1;
+                }
+                tags.pop();
             }
-        } catch (runtime_error&) {
-            cout << participant->Getname() << " выбыл из соревнования\n";
+            else {
+                tags.push(tagName);
+            }
         }
     }
 
-    for (Participant* participant : participants) {
-        delete participant;
+    if (tags.empty()) {
+        cout << "HTML-файл валиден." << endl;
+    }
+    else {
+        cout << "HTML-файл не валиден. Не все теги закрыты." << endl;
     }
 
-    for (Obstacle* obstacle : obstacles) {
-        delete obstacle;
-    }
+    return 0;
 }
